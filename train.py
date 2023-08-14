@@ -5,14 +5,13 @@ import UAVenv
 os.environ['PARL_BACKEND'] = 'torch'
 import warnings
 
-
-
 import parl
 import gym
 import numpy as np
 from parl.utils import logger, summary
 import argparse
 import pandas as pd
+import tqdm
 
 from uav_config import uav_config
 from env_utils import ParallelEnv, LocalEnv
@@ -20,6 +19,7 @@ from uav_model import uavModel
 from agent import Agent
 from storage import RolloutStorage
 from multiPPO import PPO
+from episode import create_episodes, task_generator
 
 
 def run_evaluate_episodes(agent, eval_env, eval_episodes):
@@ -62,43 +62,36 @@ def main():
     rollout = RolloutStorage(config['step_nums'], eval_env)
     # 忽略警告
     warnings.filterwarnings("ignore")
-    # train
-    obs = env.reset()
-    done = np.zeros(env.n_clusters, dtype=np.float32)
-    test_flag = 0
-    total_steps = 0
-    data = []
-    cnt = 0
-    for update in range(1, config['num_updates'] +1):
-        for step in range(config['step_nums']):
-            total_steps += 1 * config['env_num']
-            value, action, log_prob, _ = agent.sample(obs)
-            next_obs, reward, next_done, info = env.step(action)
-            rollout.append(obs, action, log_prob, reward, done, value)
-            obs, done = next_obs, next_done
-            # 输出训练信息
-            for k in range(config['env_num']):
-                if done[k] and "episode" in info.keys():
-                    logger.info("Training: total steps: {}, episode rewards: {}".format(total_steps, np.mean(info['episode']['r'])))
-                    # data.append(np.mean(info["episode"]["r"]))
-        value = agent.value(obs)
-        rollout.compute_returns(value, done)
-        agent.learn(rollout)
-        # temp = pd.DataFrame(data)
-        # temp.to_csv('data.csv', index=False, header=False)
-        # test
-        # if (total_steps + 1) // config['test_every_steps'] >= test_flag:
-        #     while (total_steps + 1) // config['test_every_steps'] >= test_flag:
-        #         test_flag += 1
-        cnt += 1
-        if cnt % 10 == 0:
-            avg_reward = run_evaluate_episodes(agent, eval_env, config['eval_episode'])
-            logger.info('Evaluation over: {} learn, Reward: {}'.format(cnt, avg_reward))
-            data.append(avg_reward)
-            temp = pd.DataFrame(data)
-            temp.to_csv('data.csv', index=False, header=False)
+    # for update in range(1, config['num_updates'] +1):
+    #     for step in range(config['step_nums']):
+    #         total_steps += 1 * config['env_num']
+    #         value, action, log_prob, _ = agent.sample(obs)
+    #         next_obs, reward, next_done, info = env.step(action)
+    #         rollout.append(obs, action, log_prob, reward, done, value)
+    #         obs, done = next_obs, next_done
+    #         # 输出训练信息
+    #         for k in range(config['env_num']):
+    #             if done[k] and "episode" in info.keys():
+    #                 logger.info("Training: total steps: {}, episode rewards: {}".format(total_steps, np.mean(info['episode']['r'])))
+    #     value = agent.value(obs)
+    #     rollout.compute_returns(value, done)
+    #     agent.learn(rollout)
+    #     cnt += 1
+    #     if cnt % 10 == 0:
+    #         avg_reward = run_evaluate_episodes(agent, eval_env, config['eval_episode'])
+    #         logger.info('Evaluation over: {} learn, Reward: {}'.format(cnt, avg_reward))
+    #         data.append(avg_reward)
+    #         temp = pd.DataFrame(data)
+    #         temp.to_csv('data.csv', index=False, header=False)
 
-
+    Trange = tqdm.trange(config['batch_size'])
+    for batch in Trange:
+        task = task_generator(env, config['meta_batch'])
+        for i in range(config['meta_batch']):
+            rollout = create_episodes(env, task[i], agent)
+            params = agent.learn(rollout, None, False) # 传入None，表示不更新, 并返回参数
+            rollout = create_episodes(env, task[i], agent, params)
+            agent.learn(rollout, params, True) # 传入参数，表示更新
 
 
 

@@ -74,13 +74,12 @@ class PPO(parl.Algorithm):
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(device)
-        self.optimizer = [optim.Adam(self.model.net[i].parameters(), lr=initial_lr, eps=eps) for i in range(self.model.n_clusters)]
 
-    def learn(self, batch_obs, batch_action, batch_value, batch_return, batch_logprob, batch_adv, lr=None):
+    def learn(self, batch_obs, batch_action, batch_value, batch_return, batch_logprob, batch_adv, params, update, lr=None):
         return_value_loss, return_action_loss, return_entropy_loss = [], [], []
         for i in range(self.model.n_clusters):
-            values = self.model.net[i].value(batch_obs[i])
-            logits = self.model.net[i].policy(batch_obs[i]) # shape(n_action, batch, n_act)
+            values = self.model.net[i].value(batch_obs[i], params[i])
+            logits = self.model.net[i].policy(batch_obs[i], params[i]) # shape(n_action, batch, n_act)
 
             #batch_action[i] is (batch, n_action)
             dist = [Categorical(logits=logits[j]) for j in range(len(logits))] # shape is (n_action, batch)    dist[][]就是有多少个动作, 每个动作有batch个分布
@@ -188,7 +187,7 @@ class PPO(parl.Algorithm):
 
     #     return value_loss.item(), action_loss.item(), entropy_loss.item()
 
-    def sample(self, obs):
+    def sample(self, obs, params):
         """ Define the sampling process. This function returns the action according to action distribution.
         
         Args:
@@ -199,9 +198,9 @@ class PPO(parl.Algorithm):
             action_log_probs (torch tensor): action log probs, shape([batch_size])
             action_entropy (torch tensor): action entropy, shape([batch_size])
         """
-        value = self.model.value(obs)
+        value = self.model.value(obs, params)
         
-        logits = self.model.policy(obs)
+        logits = self.model.policy(obs, params)
         action = torch.zeros(size=(self.model.n_clusters, self.model.n_act), dtype=torch.int64, device=torch.device('cuda'))
         action_log_probs = torch.zeros(size=(self.model.n_clusters, self.model.n_act), device=torch.device('cuda'))
         action_entropy = torch.zeros(size=(self.model.n_clusters, self.model.n_act), device=torch.device('cuda'))
@@ -238,7 +237,7 @@ class PPO(parl.Algorithm):
                 action[i][j] = dist.sample()
         return action
 
-    def value(self, obs):
+    def value(self, obs, params):
         """ use the model to predict obs values
 
         Args:
@@ -246,4 +245,4 @@ class PPO(parl.Algorithm):
         Returns:
             value (torch tensor): value of obs, shape([batch_size])
         """
-        return self.model.value(obs)
+        return self.model.value(obs, params)

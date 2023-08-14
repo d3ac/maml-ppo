@@ -2,6 +2,8 @@ import torch
 import parl
 from torch import nn
 import torch.nn.functional as F
+from torch.nn.parameter import Parameter
+from collections import OrderedDict
 
 class baseModel(nn.Module):
     def __init__(self, obs_shape, act_shape):
@@ -11,18 +13,22 @@ class baseModel(nn.Module):
         self.fc_pi = nn.ModuleList([nn.Linear(64, act_shape[i]).to(torch.device('cuda')) for i in range(len(act_shape))])
         self.fc_v = nn.Linear(64, 1)
     
-    def value(self, obs):
+    def value(self, obs, params=None):
+        if params is None:
+            params = OrderedDict(self.named_parameters())
         obs = obs.to(torch.device('cuda')).to(torch.float32)
-        obs = F.relu(self.fc1(obs))
-        obs = F.relu(self.fc2(obs))
-        v = self.fc_v(obs)
+        obs = F.relu(F.linear(obs, params['fc1.weight'], params['fc1.bias']))
+        obs = F.relu(F.linear(obs, params['fc2.weight'], params['fc2.bias']))
+        v = F.linear(obs, params['fc_v.weight'], params['fc_v.bias'])
         return v.reshape(-1)
     
-    def policy(self, obs): # 注意返回的是 (n_action, batch_size, n_act)
+    def policy(self, obs, params=None): # 注意返回的是 (n_action, batch_size, n_act)
+        if params is None:
+            params = OrderedDict(self.named_parameters())
         obs = obs.to(torch.device('cuda')).to(torch.float32)
-        obs = F.relu(self.fc1(obs))
-        obs = F.relu(self.fc2(obs))
-        logits = [self.fc_pi[i](obs) for i in range(len(self.fc_pi))]
+        obs = F.relu(F.linear(obs, params['fc1.weight'], params['fc1.bias']))
+        obs = F.relu(F.linear(obs, params['fc2.weight'], params['fc2.bias']))
+        logits = [F.linear(obs, params['fc_pi.'+str(i)+'.weight'], params['fc_pi.'+str(i)+'.bias']) for i in range(len(self.fc_pi))]
         return logits
 
 class uavModel(parl.Model):
@@ -39,8 +45,12 @@ class uavModel(parl.Model):
         self.n_act = len(act_space)
     
     # 如果是调用下面两个, 那应该是 (n_clusters, xx) 的输入, xx 还需要batch一下
-    def value(self, obs):
-        return [self.net[i].value(obs[i].reshape(1, -1)) for i in range(len(self.net))]
+    def value(self, obs, params=None):
+        if params is None:
+            params = [None, None, None]
+        return [self.net[i].value(obs[i].reshape(1, -1), params[i]) for i in range(len(self.net))]
     
-    def policy(self, obs):
-        return [self.net[i].policy(obs[i].reshape(1, -1)) for i in range(len(self.net))]
+    def policy(self, obs, params=None):
+        if params is None:
+            params = [None, None, None]
+        return [self.net[i].policy(obs[i].reshape(1, -1), params[i]) for i in range(len(self.net))]

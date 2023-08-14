@@ -16,27 +16,27 @@ class Agent(parl.Agent):
         action = self.alg.predict(obs)
         return action.cpu().detach().numpy()
     
-    def sample(self, obs):
+    def sample(self, obs, params):
         obs = torch.tensor(obs)
-        value, action, action_log_probs, action_entropy = self.alg.sample(obs)
+        value, action, action_log_probs, action_entropy = self.alg.sample(obs, params)
         value = np.array([value[i].cpu().detach().numpy() for i in range(self.alg.model.n_clusters)])
         action = action.cpu().detach().numpy() #[0]
         action_log_probs = action_log_probs.cpu().detach().numpy() #[0]
         action_entropy = action_entropy.cpu().detach().numpy()
         return value, action, action_log_probs, action_entropy
     
-    def value(self, obs):
+    def value(self, obs, params):
         obs = torch.tensor(obs)
-        value = self.alg.value(obs)
+        value = self.alg.value(obs, params)
         value = np.array([value[i].cpu().detach().numpy() for i in range(self.alg.model.n_clusters)])
         return value
     
-    def learn(self, rollout):
+    def learn(self, rollout, params, update):
         # loss
         value_loss_epoch = 0
         action_loss_epoch = 0
         entropy_loss_epoch = 0
-        # lr
+        #! lr
         if self.config['lr_decay']:
             lr = self.lr_scheduler.step(step_num=1)
         else:
@@ -61,7 +61,7 @@ class Agent(parl.Agent):
                 batch_return = torch.tensor(batch_return).to(torch.device('cuda'))
                 batch_value = torch.tensor(batch_value).to(torch.device('cuda'))
 
-                value_loss, action_loss, entropy_loss = self.alg.learn(batch_obs, batch_action, batch_value, batch_return, batch_log_prob, batch_adv, lr)
+                value_loss, action_loss, entropy_loss, params = self.alg.learn(batch_obs, batch_action, batch_value, batch_return, batch_log_prob, batch_adv, params, update, lr)
                 
                 value_loss_epoch += value_loss
                 action_loss_epoch += action_loss
