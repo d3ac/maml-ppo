@@ -16,7 +16,7 @@ uav_config = {
 
     #========== coefficient of ppo ==========
     'initial_lr': 2.5e-4,  # start learning rate
-    'lr_decay': True,  # whether or not to use linear decay rl
+    'lr_decay': False,  # whether or not to use linear decay rl
     # 'eps': 1e-5,  # Adam optimizer epsilon (default: 1e-5)
     'clip_param': 0.1,  # epsilon in clipping loss
     'entropy_coef': 0.01,  # Entropy coefficient (ie. c_2 in the paper)
@@ -29,5 +29,6 @@ uav_config = {
     # 'gae_lambda': 0.95,  # Lambda parameter for calculating N-step advantage
     
     #==========  meta config ==========
-    'batch_size': 10000
+    'batch_size': 10000,
+    'meta_batch': 1
 }

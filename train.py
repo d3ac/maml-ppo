@@ -1,7 +1,7 @@
 import os
 import sys
 sys.path.append(os.path.expanduser('~/Desktop/uav env'))
-import UAVenv
+from UAVenv.uav.uav import systemEnv
 os.environ['PARL_BACKEND'] = 'torch'
 import warnings
 
@@ -14,7 +14,7 @@ import pandas as pd
 import tqdm
 
 from uav_config import uav_config
-from env_utils import ParallelEnv, LocalEnv
+from env_utils import Wapper
 from uav_model import uavModel
 from agent import Agent
 from storage import RolloutStorage
@@ -22,18 +22,16 @@ from multiPPO import PPO
 from episode import create_episodes, task_generator
 
 
-def run_evaluate_episodes(agent, eval_env, eval_episodes):
-    eval_episode_rewards = []
-    while len(eval_episode_rewards) < eval_episodes:
-        obs = eval_env.reset()
-        done = np.array([False] * eval_env.n_clusters)
-        while not done.all():
-            action = agent.predict(obs)
-            obs, reward, done, info = eval_env.step(action)
-        if "episode" in info.keys():
-            eval_reward = info["episode"]["r"]
-            eval_episode_rewards.append(eval_reward)
-    return np.mean(eval_episode_rewards)
+def run_evaluate_episodes(agent, env, model, lr):
+    task = task_generator(1)[0]
+    params = model.get_params()
+    rollout = create_episodes(env, task, agent, params)
+    params = agent.learn(rollout, params, lr)
+    rollout = create_episodes(env, task, agent, params)
+    return rollout.get_reward()
+
+
+
 
 def main():
     # config
@@ -47,8 +45,8 @@ def main():
     config['batch_size'] = int(config['env_num'] * config['step_nums'])
     config['num_updates'] = int(config['train_total_steps'] // config['batch_size'])
     # env
-    env = LocalEnv(config['env'])
-    eval_env = LocalEnv(config['env'], test=True)
+    env = Wapper(systemEnv())
+    eval_env = Wapper(systemEnv(), test=True)
     obs_space = eval_env.obs_space
     act_space = eval_env.act_space
     n_clusters = eval_env.n_clusters
@@ -83,15 +81,26 @@ def main():
     #         data.append(avg_reward)
     #         temp = pd.DataFrame(data)
     #         temp.to_csv('data.csv', index=False, header=False)
+    lr = config['initial_lr']
+    data = []
 
     Trange = tqdm.trange(config['batch_size'])
     for batch in Trange:
-        task = task_generator(env, config['meta_batch'])
+        task = task_generator(config['meta_batch'])
         for i in range(config['meta_batch']):
-            rollout = create_episodes(env, task[i], agent)
-            params = agent.learn(rollout, None, False) # 传入None，表示不更新, 并返回参数
+            params = model.get_params()
             rollout = create_episodes(env, task[i], agent, params)
-            agent.learn(rollout, params, True) # 传入参数，表示更新
+            params = agent.learn(rollout, params, lr) # 传入None，表示不更新, 并返回参数
+            rollout = create_episodes(env, task[i], agent, params)
+            params = agent.learn(rollout, params, lr) # 传入参数，表示更新
+            model.set_params(params)
+
+        if batch % 1 == 0:
+            avg_reward = run_evaluate_episodes(agent, eval_env, model, lr)
+            logger.info('Evaluation over: {} learn, Reward: {}'.format(batch, avg_reward))
+            data.append(avg_reward)
+            temp = pd.DataFrame(data)
+            temp.to_csv('data.csv', index=False, header=False)
 
 
 

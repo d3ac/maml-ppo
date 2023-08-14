@@ -13,18 +13,14 @@ class baseModel(nn.Module):
         self.fc_pi = nn.ModuleList([nn.Linear(64, act_shape[i]).to(torch.device('cuda')) for i in range(len(act_shape))])
         self.fc_v = nn.Linear(64, 1)
     
-    def value(self, obs, params=None):
-        if params is None:
-            params = OrderedDict(self.named_parameters())
+    def value(self, obs, params):
         obs = obs.to(torch.device('cuda')).to(torch.float32)
         obs = F.relu(F.linear(obs, params['fc1.weight'], params['fc1.bias']))
         obs = F.relu(F.linear(obs, params['fc2.weight'], params['fc2.bias']))
         v = F.linear(obs, params['fc_v.weight'], params['fc_v.bias'])
         return v.reshape(-1)
     
-    def policy(self, obs, params=None): # 注意返回的是 (n_action, batch_size, n_act)
-        if params is None:
-            params = OrderedDict(self.named_parameters())
+    def policy(self, obs, params): # 注意返回的是 (n_action, batch_size, n_act)
         obs = obs.to(torch.device('cuda')).to(torch.float32)
         obs = F.relu(F.linear(obs, params['fc1.weight'], params['fc1.bias']))
         obs = F.relu(F.linear(obs, params['fc2.weight'], params['fc2.bias']))
@@ -45,12 +41,16 @@ class uavModel(parl.Model):
         self.n_act = len(act_space)
     
     # 如果是调用下面两个, 那应该是 (n_clusters, xx) 的输入, xx 还需要batch一下
-    def value(self, obs, params=None):
-        if params is None:
-            params = [None, None, None]
+    def value(self, obs, params):
         return [self.net[i].value(obs[i].reshape(1, -1), params[i]) for i in range(len(self.net))]
     
-    def policy(self, obs, params=None):
-        if params is None:
-            params = [None, None, None]
+    def policy(self, obs, params):
         return [self.net[i].policy(obs[i].reshape(1, -1), params[i]) for i in range(len(self.net))]
+    
+    def get_params(self):
+        return [OrderedDict(self.net[i].named_parameters()) for i in range(self.n_clusters)]
+    
+    def set_params(self, params):
+        for i in range(self.n_clusters):
+            for name, param in self.net[i].named_parameters():
+                param.data = params[i][name].data

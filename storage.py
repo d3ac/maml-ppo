@@ -61,3 +61,6 @@ class RolloutStorage():
         values = np.array([b_values[i][idx] for i in range(self.n_clusters)])
 
         return obs, actions, logprobs, advantages, returns, values
+    
+    def get_reward(self):
+        return np.mean([np.sum(self.rewards[i]) for i in range(self.n_clusters)])

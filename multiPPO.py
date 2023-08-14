@@ -20,6 +20,7 @@ import torch.optim as optim
 from torch.distributions import Normal, Categorical
 from parl.utils.utils import check_model_method
 import numpy as np
+from collections import OrderedDict
 
 __all__ = ['PPO']
 
@@ -75,7 +76,7 @@ class PPO(parl.Algorithm):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(device)
 
-    def learn(self, batch_obs, batch_action, batch_value, batch_return, batch_logprob, batch_adv, params, update, lr=None):
+    def learn(self, batch_obs, batch_action, batch_value, batch_return, batch_logprob, batch_adv, params, lr):
         return_value_loss, return_action_loss, return_entropy_loss = [], [], []
         for i in range(self.model.n_clusters):
             values = self.model.net[i].value(batch_obs[i], params[i])
@@ -106,86 +107,22 @@ class PPO(parl.Algorithm):
                 value_loss = 0.5 * (batch_return[i] - values).pow(2).mean()
             loss = value_loss * self.value_loss_coef + action_loss - entropy_loss * self.entropy_coef
             
-            if lr:
-                for param_group in self.optimizer[i].param_groups:
-                    param_group['lr'] = lr
-            
-            self.optimizer[i].zero_grad()
-            loss.backward()
-            nn.utils.clip_grad_norm_(self.model.net[i].parameters(), self.max_grad_norm)
-            self.optimizer[i].step()
+            # self.optimizer[i].zero_grad()
+            # loss.backward()
+            # nn.utils.clip_grad_norm_(self.model.net[i].parameters(), self.max_grad_norm)
+            # self.optimizer[i].step()
+
+            grads = torch.autograd.grad(loss, params[i].values(), create_graph=True)
+            grads = [torch.nn.utils.clip_grad_norm_(grad, self.max_grad_norm) for grad in grads]
+            updated_params = OrderedDict()
+            for (name, param), grad in zip(params[i].items(), grads):
+                updated_params[name] = param - lr * grad
+            params[i] = updated_params
 
             return_value_loss.append(value_loss.item())
             return_action_loss.append(action_loss.item())
             return_entropy_loss.append(entropy_loss.item())
-        return np.mean(return_value_loss), np.mean(return_action_loss), np.mean(return_entropy_loss)
-
-
-    # def learn(self,
-    #           batch_obs,
-    #           batch_action,
-    #           batch_value,
-    #           batch_return,
-    #           batch_logprob,
-    #           batch_adv,
-    #           lr=None):
-    #     """ update model with PPO algorithm
-
-    #     Args:
-    #         batch_obs (torch.Tensor):           shape([batch_size] + obs_shape)
-    #         batch_action (torch.Tensor):        shape([batch_size] + action_shape)
-    #         batch_value (torch.Tensor):         shape([batch_size])
-    #         batch_return (torch.Tensor):        shape([batch_size])
-    #         batch_logprob (torch.Tensor):       shape([batch_size])
-    #         batch_adv (torch.Tensor):           shape([batch_size])
-    #         lr (torch.Tensor):
-    #     Returns:
-    #         value_loss (float): value loss
-    #         action_loss (float): policy loss
-    #         entropy_loss (float): entropy loss
-    #     """
-    #     values = self.model.value(batch_obs)
-
-    #     logits = self.model.policy(batch_obs)
-    #     dist = Categorical(logits=logits)
-    #     action_log_probs = dist.log_prob(batch_action)
-    #     dist_entropy = dist.entropy()
-    #     entropy_loss = dist_entropy.mean()
-
-    #     if self.norm_adv:
-    #         batch_adv = (batch_adv - batch_adv.mean()) / (
-    #             batch_adv.std() + 1e-8)
-
-    #     ratio = torch.exp(action_log_probs - batch_logprob)
-    #     surr1 = ratio * batch_adv
-    #     surr2 = torch.clamp(ratio, 1.0 - self.clip_param, 1.0 + self.clip_param) * batch_adv
-    #     action_loss = -torch.min(surr1, surr2).mean()
-
-    #     values = values.view(-1)
-    #     if self.use_clipped_value_loss:
-    #         value_pred_clipped = batch_value + torch.clamp(
-    #             values - batch_value,
-    #             -self.clip_param,
-    #             self.clip_param,
-    #         )
-    #         value_losses = (values - batch_return).pow(2)
-    #         value_losses_clipped = (value_pred_clipped - batch_return).pow(2)
-    #         value_loss = 0.5 * torch.max(value_losses,
-    #                                      value_losses_clipped).mean()
-    #     else:
-    #         value_loss = 0.5 * (batch_return - values).pow(2).mean()
-    #     loss = value_loss * self.value_loss_coef + action_loss - entropy_loss * self.entropy_coef
-
-    #     if lr:
-    #         for param_group in self.optimizer.param_groups:
-    #             param_group['lr'] = lr
-
-    #     self.optimizer.zero_grad()
-    #     loss.backward()
-    #     nn.utils.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
-    #     self.optimizer.step()
-
-    #     return value_loss.item(), action_loss.item(), entropy_loss.item()
+        return np.mean(return_value_loss), np.mean(return_action_loss), np.mean(return_entropy_loss), params
 
     def sample(self, obs, params):
         """ Define the sampling process. This function returns the action according to action distribution.

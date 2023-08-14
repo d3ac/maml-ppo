@@ -31,16 +31,11 @@ class Agent(parl.Agent):
         value = np.array([value[i].cpu().detach().numpy() for i in range(self.alg.model.n_clusters)])
         return value
     
-    def learn(self, rollout, params, update):
+    def learn(self, rollout, params, lr):
         # loss
         value_loss_epoch = 0
         action_loss_epoch = 0
         entropy_loss_epoch = 0
-        #! lr
-        if self.config['lr_decay']:
-            lr = self.lr_scheduler.step(step_num=1)
-        else:
-            lr = None
         # update
         minibatch_size = self.config['batch_size'] // self.config['num_minibatches'] 
         # num_mini_batch 决定了每次将数据分成几个小批次, batch_size 就是 step_nums (每次更新时采样多少个样本)
@@ -61,7 +56,7 @@ class Agent(parl.Agent):
                 batch_return = torch.tensor(batch_return).to(torch.device('cuda'))
                 batch_value = torch.tensor(batch_value).to(torch.device('cuda'))
 
-                value_loss, action_loss, entropy_loss, params = self.alg.learn(batch_obs, batch_action, batch_value, batch_return, batch_log_prob, batch_adv, params, update, lr)
+                value_loss, action_loss, entropy_loss, params = self.alg.learn(batch_obs, batch_action, batch_value, batch_return, batch_log_prob, batch_adv, params, lr)
                 
                 value_loss_epoch += value_loss
                 action_loss_epoch += action_loss
@@ -71,4 +66,4 @@ class Agent(parl.Agent):
         action_loss_epoch /= update_steps
         entropy_loss_epoch /= update_steps
 
-        return value_loss_epoch, action_loss_epoch, entropy_loss_epoch, lr
+        return params
