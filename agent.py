@@ -49,12 +49,12 @@ class Agent(parl.Agent):
 
                 batch_obs, batch_action, batch_log_prob, batch_adv, batch_return, batch_value = rollout.sample_batch(sample_idx)
 
-                batch_obs = torch.tensor(batch_obs).to(torch.device('cuda'))
-                batch_action = torch.tensor(batch_action).to(torch.device('cuda'))
-                batch_log_prob = torch.tensor(batch_log_prob).to(torch.device('cuda'))
-                batch_adv = torch.tensor(batch_adv).to(torch.device('cuda'))
-                batch_return = torch.tensor(batch_return).to(torch.device('cuda'))
-                batch_value = torch.tensor(batch_value).to(torch.device('cuda'))
+                batch_obs = torch.tensor(batch_obs)
+                batch_action = torch.tensor(batch_action)
+                batch_log_prob = torch.tensor(batch_log_prob)
+                batch_adv = torch.tensor(batch_adv)
+                batch_return = torch.tensor(batch_return)
+                batch_value = torch.tensor(batch_value)
 
                 value_loss, action_loss, entropy_loss, params = self.alg.learn(batch_obs, batch_action, batch_value, batch_return, batch_log_prob, batch_adv, params, lr)
                 

@@ -73,7 +73,7 @@ class PPO(parl.Algorithm):
         self.norm_adv = norm_adv
         self.continuous_action = continuous_action
 
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = torch.device("cpu")
         self.model = model.to(device)
 
     def learn(self, batch_obs, batch_action, batch_value, batch_return, batch_logprob, batch_adv, params, lr):
@@ -138,9 +138,9 @@ class PPO(parl.Algorithm):
         value = self.model.value(obs, params)
         
         logits = self.model.policy(obs, params)
-        action = torch.zeros(size=(self.model.n_clusters, self.model.n_act), dtype=torch.int64, device=torch.device('cuda'))
-        action_log_probs = torch.zeros(size=(self.model.n_clusters, self.model.n_act), device=torch.device('cuda'))
-        action_entropy = torch.zeros(size=(self.model.n_clusters, self.model.n_act), device=torch.device('cuda'))
+        action = torch.zeros(size=(self.model.n_clusters, self.model.n_act), dtype=torch.int64, device=torch.device('cpu'))
+        action_log_probs = torch.zeros(size=(self.model.n_clusters, self.model.n_act), device=torch.device('cpu'))
+        action_entropy = torch.zeros(size=(self.model.n_clusters, self.model.n_act), device=torch.device('cpu'))
         for i in range(self.model.n_clusters):
             for j in range(self.model.n_act):
                 dist = Categorical(logits=logits[i][j])
@@ -167,7 +167,7 @@ class PPO(parl.Algorithm):
         #     action = dist.probs.argmax(dim=-1, keepdim=True)
         # return action
         logits = self.model.policy(obs)
-        action = torch.zeros(size=(self.model.n_clusters, self.model.n_act), dtype=torch.int64, device=torch.device('cuda'))
+        action = torch.zeros(size=(self.model.n_clusters, self.model.n_act), dtype=torch.int64, device=torch.device('cpu'))
         for i in range(self.model.n_clusters):
             for j in range(self.model.n_act):
                 dist = Categorical(logits=logits[i][j])

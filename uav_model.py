@@ -10,18 +10,18 @@ class baseModel(nn.Module):
         super(baseModel, self).__init__()
         self.fc1 = nn.Linear(obs_shape[0], 64)
         self.fc2 = nn.Linear(64, 64)
-        self.fc_pi = nn.ModuleList([nn.Linear(64, act_shape[i]).to(torch.device('cuda')) for i in range(len(act_shape))])
+        self.fc_pi = nn.ModuleList([nn.Linear(64, act_shape[i]) for i in range(len(act_shape))])
         self.fc_v = nn.Linear(64, 1)
     
     def value(self, obs, params):
-        obs = obs.to(torch.device('cuda')).to(torch.float32)
+        obs = obs.to(torch.float32)
         obs = F.relu(F.linear(obs, params['fc1.weight'], params['fc1.bias']))
         obs = F.relu(F.linear(obs, params['fc2.weight'], params['fc2.bias']))
         v = F.linear(obs, params['fc_v.weight'], params['fc_v.bias'])
         return v.reshape(-1)
     
     def policy(self, obs, params): # 注意返回的是 (n_action, batch_size, n_act)
-        obs = obs.to(torch.device('cuda')).to(torch.float32)
+        obs = obs.to(torch.float32)
         obs = F.relu(F.linear(obs, params['fc1.weight'], params['fc1.bias']))
         obs = F.relu(F.linear(obs, params['fc2.weight'], params['fc2.bias']))
         logits = [F.linear(obs, params['fc_pi.'+str(i)+'.weight'], params['fc_pi.'+str(i)+'.bias']) for i in range(len(self.fc_pi))]
@@ -35,8 +35,6 @@ class uavModel(parl.Model):
         """
         super(uavModel, self).__init__()
         self.net = [baseModel(obs_space, act_space) for i in range(n_clusters)]
-        for i in range(n_clusters):
-            self.net[i].to(torch.device('cuda'))
         self.n_clusters = n_clusters
         self.n_act = len(act_space)
     
