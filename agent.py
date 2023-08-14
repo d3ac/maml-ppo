@@ -11,9 +11,9 @@ class Agent(parl.Agent):
         if self.config['lr_decay']:
             self.lr_scheduler = LinearDecayScheduler(self.config['initial_lr'], self.config['num_updates'])
 
-    def predict(self, obs):
+    def predict(self, obs, params):
         obs = torch.tensor(obs)
-        action = self.alg.predict(obs)
+        action = self.alg.predict(obs, params)
         return action.cpu().detach().numpy()
     
     def sample(self, obs, params):

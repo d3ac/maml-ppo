@@ -150,7 +150,7 @@ class PPO(parl.Algorithm):
 
         return value, action, action_log_probs, action_entropy
 
-    def predict(self, obs):
+    def predict(self, obs, params):
         """ use the model to predict action
 
         Args:
@@ -166,7 +166,7 @@ class PPO(parl.Algorithm):
         #     dist = Categorical(logits=logits)
         #     action = dist.probs.argmax(dim=-1, keepdim=True)
         # return action
-        logits = self.model.policy(obs)
+        logits = self.model.policy(obs, params)
         action = torch.zeros(size=(self.model.n_clusters, self.model.n_act), dtype=torch.int64, device=torch.device('cpu'))
         for i in range(self.model.n_clusters):
             for j in range(self.model.n_act):
