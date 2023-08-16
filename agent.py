@@ -8,9 +8,7 @@ class Agent(parl.Agent):
     def __init__(self, algorithm, config):
         super(Agent, self).__init__(algorithm)
         self.config = config
-        if self.config['lr_decay']:
-            self.lr_scheduler = LinearDecayScheduler(self.config['initial_lr'], self.config['num_updates'])
-
+    
     def predict(self, obs, params):
         obs = torch.tensor(obs)
         action = self.alg.predict(obs, params)
@@ -31,7 +29,7 @@ class Agent(parl.Agent):
         value = np.array([value[i].cpu().detach().numpy() for i in range(self.alg.model.n_clusters)])
         return value
     
-    def learn(self, rollout, params, lr):
+    def learn(self, rollout, params, lr, update_flag=False):
         # loss
         value_loss_epoch = 0
         action_loss_epoch = 0
@@ -56,7 +54,7 @@ class Agent(parl.Agent):
                 batch_return = torch.tensor(batch_return)
                 batch_value = torch.tensor(batch_value)
 
-                value_loss, action_loss, entropy_loss, params = self.alg.learn(batch_obs, batch_action, batch_value, batch_return, batch_log_prob, batch_adv, params, lr)
+                value_loss, action_loss, entropy_loss, params = self.alg.learn(batch_obs, batch_action, batch_value, batch_return, batch_log_prob, batch_adv, params, lr, update_flag)
                 
                 value_loss_epoch += value_loss
                 action_loss_epoch += action_loss

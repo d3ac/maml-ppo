@@ -7,8 +7,8 @@ uav_config = {
 
     #==========  training config ==========
     'step_nums': 300,  # data collecting time steps (ie. T in the paper)
-    'num_minibatches': 10,  # number of training minibatches per update.
-    'update_epochs': 10,  # number of epochs for updating (ie K in the paper)
+    'num_minibatches': 4,  # number of training minibatches per update.
+    'update_epochs': 4,  # number of epochs for updating (ie K in the paper)
 
     #========== coefficient of ppo ==========
     'initial_lr': 2.5e-4,  # start learning rate

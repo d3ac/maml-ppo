@@ -24,6 +24,18 @@ from collections import OrderedDict
 
 __all__ = ['PPO']
 
+def clip_grad_values_(grads, max_norm, norm_type=2):
+    total_norm = 0
+    for grad in grads:
+        param_norm = grad.data.norm(norm_type)
+        total_norm += param_norm.item() ** norm_type
+    total_norm = total_norm ** (1. / norm_type)
+
+    clip_coef = max_norm / (total_norm + 1e-6)
+    if clip_coef < 1:
+        for grad in grads:
+            grad.data.mul_(clip_coef)
+    return grads
 
 class PPO(parl.Algorithm):
     def __init__(self,
@@ -75,8 +87,10 @@ class PPO(parl.Algorithm):
 
         device = torch.device("cpu")
         self.model = model.to(device)
+        self.optimizer = [optim.Adam(self.model.net[i].parameters(), lr=initial_lr, eps=eps) for i in range(self.model.n_clusters)]
 
-    def learn(self, batch_obs, batch_action, batch_value, batch_return, batch_logprob, batch_adv, params, lr):
+
+    def learn(self, batch_obs, batch_action, batch_value, batch_return, batch_logprob, batch_adv, params, lr, update_flag=False):
         return_value_loss, return_action_loss, return_entropy_loss = [], [], []
         for i in range(self.model.n_clusters):
             values = self.model.net[i].value(batch_obs[i], params[i])
@@ -106,18 +120,28 @@ class PPO(parl.Algorithm):
             else:
                 value_loss = 0.5 * (batch_return[i] - values).pow(2).mean()
             loss = value_loss * self.value_loss_coef + action_loss - entropy_loss * self.entropy_coef
-            
-            # self.optimizer[i].zero_grad()
-            # loss.backward()
-            # nn.utils.clip_grad_norm_(self.model.net[i].parameters(), self.max_grad_norm)
-            # self.optimizer[i].step()
 
-            grads = torch.autograd.grad(loss, params[i].values(), create_graph=True)
-            grads = [torch.nn.utils.clip_grad_norm_(grad, self.max_grad_norm) for grad in grads]
-            updated_params = OrderedDict()
-            for (name, param), grad in zip(params[i].items(), grads):
-                updated_params[name] = param - lr * grad
-            params[i] = updated_params
+            grads = torch.autograd.grad(loss, params[i].values(), create_graph=True)            
+
+            if update_flag: # 这里就直接使用adam
+                for param, grad in zip(self.model.net[i].parameters(), grads):
+                    param.grad = grad.clone()
+                nn.utils.clip_grad_norm_(self.model.net[i].parameters(), self.max_grad_norm)
+                self.optimizer[i].step()
+                self.optimizer[i].zero_grad()
+            else: # 这里直接使用的是SGD, 可能也会有更好的方法
+                grads = clip_grad_values_(grads, self.max_grad_norm)
+                for (name, param), grad in zip(params[i].items(), grads):
+                    param.data -= lr * grad
+            
+            # updated_params = OrderedDict()
+            # if not update_flag:
+            #     for (name, param), grad in zip(params[i].items(), grads):
+            #         updated_params[name] = param - lr * grad
+            #     params[i] = updated_params
+            # else:
+            #     for (name, param), grad in zip(params[i].items(), grads):
+            #         self.model.net[i].state_dict()[name] -= lr * grad
 
             return_value_loss.append(value_loss.item())
             return_action_loss.append(action_loss.item())

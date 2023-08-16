@@ -75,8 +75,7 @@ def main():
             rollout = create_episodes(env, task[i], agent, params)
             params = agent.learn(rollout, params, lr) # 传入None，表示不更新, 并返回参数
             rollout = create_episodes(env, task[i], agent, params)
-            params = agent.learn(rollout, params, lr) # 传入参数，表示更新
-            model.set_params(params)
+            params = agent.learn(rollout, params, lr, True) # 传入参数，表示更新
 
         avg_reward = run_evaluate_episodes(agent, eval_env, model, lr)
         logger.info('Evaluation over: {} learn, Reward: {}, schedule: {}/{}'.format(batch, avg_reward, batch, config['update_num']))
