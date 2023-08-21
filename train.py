@@ -1,6 +1,9 @@
 import os
 import sys
-sys.path.append(os.path.expanduser('C:/Users/10485/Desktop/科研训练/uavenv'))
+if sys.platform == 'win64':
+    sys.path.append(os.path.expanduser('C:/Users/10485/Desktop/科研训练/uavenv'))
+else:
+    sys.path.append(os.path.expanduser('~/Desktop/科研训练/uav env'))
 from UAVenv.uav.uav import systemEnv
 os.environ['PARL_BACKEND'] = 'torch'
 import warnings

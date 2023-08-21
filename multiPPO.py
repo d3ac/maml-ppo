@@ -87,7 +87,7 @@ class PPO(parl.Algorithm):
 
         device = torch.device("cpu")
         self.model = model.to(device)
-        self.optimizer = [optim.Adam(self.model.net[i].parameters(), lr=initial_lr, eps=eps, weight_decay=0.001) for i in range(self.model.n_clusters)]
+        self.optimizer = [optim.Adam(self.model.net[i].parameters(), lr=initial_lr, eps=eps) for i in range(self.model.n_clusters)]
 
 
     def learn(self, batch_obs, batch_action, batch_value, batch_return, batch_logprob, batch_adv, params, lr, update_flag=False):
@@ -146,7 +146,6 @@ class PPO(parl.Algorithm):
             return_value_loss.append(value_loss.item())
             return_action_loss.append(action_loss.item())
             return_entropy_loss.append(entropy_loss.item())
-            print(return_value_loss)
         return np.mean(return_value_loss), np.mean(return_action_loss), np.mean(return_entropy_loss), params
 
     def sample(self, obs, params):
