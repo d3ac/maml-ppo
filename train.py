@@ -1,6 +1,6 @@
 import os
 import sys
-sys.path.append(os.path.expanduser('~/Desktop/uav env'))
+sys.path.append(os.path.expanduser('C:/Users/10485/Desktop/科研训练/uavenv'))
 from UAVenv.uav.uav import systemEnv
 os.environ['PARL_BACKEND'] = 'torch'
 import warnings
@@ -21,7 +21,7 @@ from multiPPO import PPO
 from episode import create_episodes, task_generator
 
 
-def run_evaluate_episodes(agent, env, model, lr):
+def run_evaluate_episode(agent, env, model, lr):
     # adapt
     task = task_generator(1)[0]
     params = model.get_params()
@@ -37,7 +37,12 @@ def run_evaluate_episodes(agent, env, model, lr):
         rewards.append(reward)
     return np.mean(np.sum(np.array(rewards), axis=0))
 
-
+def run_evaluate_episodes(agent, env, model, lr, num):
+    rewards = []
+    for i in range(num):
+        reward = run_evaluate_episode(agent, env, model, lr)
+        rewards.append(reward)
+    return np.mean(rewards)
 
 def main():
     # config
@@ -77,7 +82,8 @@ def main():
             rollout = create_episodes(env, task[i], agent, params)
             params = agent.learn(rollout, params, lr, True) # 传入参数，表示更新
 
-        avg_reward = run_evaluate_episodes(agent, eval_env, model, lr)
+
+        avg_reward = run_evaluate_episodes(agent, eval_env, model, lr, config['eval_episode'])
         logger.info('Evaluation over: {} learn, Reward: {}, schedule: {}/{}'.format(batch, avg_reward, batch, config['update_num']))
         data.append(avg_reward)
         temp = pd.DataFrame(data)

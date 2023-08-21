@@ -12,6 +12,9 @@ class baseModel(nn.Module):
         self.fc2 = nn.Linear(64, 64)
         self.fc_pi = nn.ModuleList([nn.Linear(64, act_shape[i]) for i in range(len(act_shape))])
         self.fc_v = nn.Linear(64, 1)
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
     
     def value(self, obs, params):
         obs = obs.to(torch.float32)
@@ -26,7 +29,7 @@ class baseModel(nn.Module):
         obs = F.relu(F.linear(obs, params['fc2.weight'], params['fc2.bias']))
         logits = [F.linear(obs, params['fc_pi.'+str(i)+'.weight'], params['fc_pi.'+str(i)+'.bias']) for i in range(len(self.fc_pi))]
         return logits
-
+    
 class uavModel(parl.Model):
     def __init__(self, obs_space, act_space, n_clusters):
         """
