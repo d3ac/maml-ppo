@@ -1,6 +1,6 @@
 import os
 import sys
-if sys.platform == 'win64':
+if sys.platform == 'win32':
     sys.path.append(os.path.expanduser('C:/Users/10485/Desktop/科研训练/uavenv'))
 else:
     sys.path.append(os.path.expanduser('~/Desktop/科研训练/uav env'))
