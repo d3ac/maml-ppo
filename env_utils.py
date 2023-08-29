@@ -14,6 +14,7 @@ class Wapper(object):
         self.n_clusters = self.env.n_clusters
 
     def reset(self, seed):
+        self.rewards = []
         return self.env.reset(seed)
 
     def step(self, action):
